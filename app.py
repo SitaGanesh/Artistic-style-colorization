@@ -2,7 +2,6 @@
 Streamlit GUI for Task 1: Artistic Style Transfer + Colorization
 Interactive web interface for colorizing grayscale images with artistic styles.
 """
-
 import streamlit as st
 import torch
 import os
@@ -11,8 +10,8 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Add src directory to path
-sys.path.append('../src')
+# Add src directory to path for root-level execution
+sys.path.append('./task1_style_transfer/src')
 
 from data_utils import (
     load_grayscale_image,
@@ -36,7 +35,8 @@ def load_model():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = StyleColorizer().to(device)
     
-    model_path = '../models/baseline_model.pth'
+    # Updated path for root directory
+    model_path = './task1_style_transfer/models/baseline_model.pth'
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path, map_location=device))
         model.eval()
@@ -47,7 +47,8 @@ def load_model():
 
 def get_style_images():
     """Get available style images"""
-    style_dir = '../data/styles'
+    # Updated path for root directory
+    style_dir = './task1_style_transfer/data/styles'
     if not os.path.exists(style_dir):
         return []
     
@@ -140,8 +141,6 @@ def load_image_from_pil(pil_img, target_size=(256, 256), device='cpu'):
 
 # Main App
 def main():
-    st.set_page_config(page_title="Artistic Colorizer", page_icon="🎨")
-
     st.title("🎨 Artistic Style-Based Colorization")
     st.markdown("Transform your grayscale photos with artistic styles!")
     
@@ -153,11 +152,10 @@ def main():
     # Get available styles
     style_files = get_style_images()
     if not style_files:
-        st.error("No style images found in ../data/styles/. Please add some style images first.")
+        st.error("No style images found in ./task1_style_transfer/data/styles/. Please add some style images first.")
         st.stop()
     
     with st.container():
-   
         st.header("📤 Upload & Configure")
         
         # File uploader
@@ -173,8 +171,6 @@ def main():
             st.image(input_image, caption="Uploaded Image", width=300)
             
             # Style selection
-            # In your GUI app.py, replace the style selection part with:
-
             st.subheader("🎭 Choose Artistic Style") 
             
             # Show style thumbnails in a grid
@@ -219,8 +215,6 @@ def main():
                 if selected_name != style_names[selected_style_idx]:
                     selected_style_idx = style_names.index(selected_name)
                     st.session_state['selected_style_idx'] = selected_style_idx
-
-            # Add to your GUI app.py after style selection:
 
         # Real-time preview section
         if uploaded_file and 'selected_style_idx' in st.session_state:
@@ -276,8 +270,6 @@ def main():
                         st.error(f"Preview failed: {str(e)}")
                         import traceback
                         st.error(f"Full error: {traceback.format_exc()}")
-
-
             
             # Colorize button
             if st.button("🎨 Colorize Image", type="primary"):
