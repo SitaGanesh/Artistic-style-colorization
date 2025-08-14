@@ -25,9 +25,6 @@ gui/__pycache__/
 task1_style_transfer/data/
 data/
 
-# Model weights and checkpoints
-task1_style_transfer/models/
-models/
 
 # Generated results & outputs
 task1_style_transfer/results/
