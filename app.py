@@ -29,21 +29,65 @@ st.set_page_config(
     layout="wide"
 )
 
+# @st.cache_resource
+# def load_model():
+#     """Load the trained model (cached to avoid reloading)"""
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     model = StyleColorizer().to(device)
+    
+#     # Updated path for root directory
+#     model_path = './task1_style_transfer/models/baseline_model.pth'
+#     if os.path.exists(model_path):
+#         model.load_state_dict(torch.load(model_path, map_location=device))
+#         model.eval()
+#         return model, device
+#     else:
+#         st.error(f"Model not found at {model_path}. Please train the model first.")
+#         return None, device
+import gc
+import psutil
+
 @st.cache_resource
 def load_model():
     """Load the trained model (cached to avoid reloading)"""
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # Force CPU to save memory (Streamlit Cloud has limited resources)
+    device = torch.device('cpu')
     model = StyleColorizer().to(device)
     
     # Updated path for root directory
     model_path = './task1_style_transfer/models/baseline_model.pth'
     if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path, map_location=device))
-        model.eval()
-        return model, device
+        try:
+            # Load with memory optimization
+            checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+            model.load_state_dict(checkpoint)
+            model.eval()
+            
+            # Disable gradients to save memory
+            for param in model.parameters():
+                param.requires_grad = False
+            
+            # Clear checkpoint from memory
+            del checkpoint
+            gc.collect()
+            
+            return model, device
+        except Exception as e:
+            st.error(f"Error loading model: {str(e)}")
+            return None, device
     else:
         st.error(f"Model not found at {model_path}. Please train the model first.")
         return None, device
+
+# Add this helper function for memory monitoring
+def get_memory_usage():
+    """Get current memory usage in MB"""
+    try:
+        process = psutil.Process(os.getpid())
+        memory_mb = process.memory_info().rss / 1024 / 1024
+        return memory_mb
+    except:
+        return 0
 
 def get_style_images():
     """Get available style images"""
@@ -59,15 +103,82 @@ def get_style_images():
     
     return sorted(style_files)
 
+# def colorize_image(model, device, grayscale_img, style_img, style_strength=1.0, content_weight=1.0, color_saturation=1.0):
+#     """Colorize a grayscale image with the given style"""
+#     try:
+#         # Convert PIL images to tensors
+#         L_tensor = load_grayscale_image_from_pil(grayscale_img, device=device)
+#         style_tensor = load_image_from_pil(style_img, device=device)
+#         style_norm = normalize_for_vgg(style_tensor)
+        
+#         with torch.no_grad():
+#             ab_pred = model(L_tensor, style_norm)
+            
+#             # Handle shape mismatch
+#             _, _, H, W = L_tensor.shape
+#             if ab_pred.shape[2:] != (H, W):
+#                 ab_pred = torch.nn.functional.interpolate(
+#                     ab_pred, size=(H, W), mode='bilinear', align_corners=False
+#                 )
+            
+#             # Apply style strength and color saturation
+#             ab_pred = ab_pred * style_strength * color_saturation
+            
+#             # Direct color transfer from style
+#             import tempfile
+#             with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+#                 style_img.save(tmp.name)
+#                 style_path = tmp.name
+            
+#             try:
+#                 from data_utils import get_lab_mean_std
+#                 a_mean, a_std, b_mean, b_std = get_lab_mean_std(style_path)
+                
+#                 # Re-scale ab channels
+#                 a = ab_pred[0,0]
+#                 b = ab_pred[0,1]
+                
+#                 a = (a - a.mean()) / (a.std() + 1e-5) * a_std + a_mean
+#                 b = (b - b.mean()) / (b.std() + 1e-5) * b_std + b_mean
+                
+#                 ab_pred = torch.stack([a, b], dim=0).unsqueeze(0)
+#             finally:
+#                 os.unlink(style_path)
+            
+#             # Reconstruct RGB
+#             lab_full = torch.cat([L_tensor, ab_pred], dim=1)
+#             rgb_pred = lab_to_rgb_tensor(lab_full)
+            
+#         return tensor_to_pil(rgb_pred)
+    
+#     except Exception as e:
+#         st.error(f"Error during colorization: {str(e)}")
+#         import traceback
+#         st.error(f"Traceback: {traceback.format_exc()}")
+#         return None
+
 def colorize_image(model, device, grayscale_img, style_img, style_strength=1.0, content_weight=1.0, color_saturation=1.0):
-    """Colorize a grayscale image with the given style"""
+    """Colorize a grayscale image with the given style - Memory optimized"""
     try:
+        # Memory optimization: Use smaller image sizes for deployment
+        max_size = 224  # Reduced from 256 to save memory
+        
+        # Resize inputs to smaller size
+        if max(grayscale_img.size) > max_size:
+            grayscale_img = grayscale_img.resize((max_size, max_size), Image.LANCZOS)
+        if max(style_img.size) > max_size:
+            style_img = style_img.resize((max_size, max_size), Image.LANCZOS)
+        
         # Convert PIL images to tensors
-        L_tensor = load_grayscale_image_from_pil(grayscale_img, device=device)
-        style_tensor = load_image_from_pil(style_img, device=device)
+        L_tensor = load_grayscale_image_from_pil(grayscale_img, target_size=(max_size, max_size), device=device)
+        style_tensor = load_image_from_pil(style_img, target_size=(max_size, max_size), device=device)
         style_norm = normalize_for_vgg(style_tensor)
         
         with torch.no_grad():
+            # Clear any cached computations
+            if hasattr(torch, 'cuda') and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            
             ab_pred = model(L_tensor, style_norm)
             
             # Handle shape mismatch
@@ -105,13 +216,25 @@ def colorize_image(model, device, grayscale_img, style_img, style_strength=1.0, 
             lab_full = torch.cat([L_tensor, ab_pred], dim=1)
             rgb_pred = lab_to_rgb_tensor(lab_full)
             
+            # Memory cleanup
+            del L_tensor, style_tensor, style_norm, ab_pred, lab_full
+            if hasattr(torch, 'cuda') and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
+            
         return tensor_to_pil(rgb_pred)
     
     except Exception as e:
+        # Memory cleanup on error
+        if hasattr(torch, 'cuda') and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+        
         st.error(f"Error during colorization: {str(e)}")
         import traceback
         st.error(f"Traceback: {traceback.format_exc()}")
         return None
+
 
 def load_grayscale_image_from_pil(pil_img, target_size=(256, 256), device='cpu'):
     """Load PIL image and convert to grayscale tensor"""
@@ -148,7 +271,12 @@ def main():
     model, device = load_model()
     if model is None:
         st.stop()
-    
+    # Add memory monitoring (optional - for debugging)
+    with st.expander("🔧 Debug Info"):
+        memory_usage = get_memory_usage()
+        st.write(f"Current Memory Usage: {memory_usage:.1f} MB")
+        st.write(f"Device: {device}")
+        
     # Get available styles
     style_files = get_style_images()
     if not style_files:
