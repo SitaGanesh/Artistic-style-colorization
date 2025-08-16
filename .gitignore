@@ -21,11 +21,6 @@ gui/__pycache__/
 # Python logs and runtime files
 *.log
 
-# Data folders (raw images, datasets)
-task1_style_transfer/data/
-data/
-
-
 # Generated results & outputs
 task1_style_transfer/results/
 results/
