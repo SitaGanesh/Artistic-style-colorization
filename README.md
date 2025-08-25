@@ -93,7 +93,7 @@ Streamlit
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/ySitaGanesh/Artistic-style-colorization.git
+git clone https://github.com/SitaGanesh/Artistic-style-colorization.git
 cd Artistic-style-colorization
 ```
 
