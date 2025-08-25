@@ -19,7 +19,7 @@ By leveraging a pretrained VGG-19 feature extractor and custom loss functions, o
 ## Folder Structure
 
 ```
-.
+Artistic-style-colorization/
 ├── data/
 │   ├── content/         # Grayscale input images (png, jpg)
 │   └── styles/          # Style reference images (jpg, png)
@@ -93,8 +93,8 @@ Streamlit
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/colorization_task1.git
-cd colorization_task1
+git clone https://github.com/ySitaGanesh/Artistic-style-colorization.git
+cd Artistic-style-colorization
 ```
 
 2. Create a virtual environment:
@@ -211,9 +211,9 @@ pip install Streamlit
 2. Run the app:
 
 ```bash
-cd task1_style_transfer/gui/
+cd Artistic-style-colorization/gui/
 
-cd colorization_task1\task1_style_transfer\gui>streamlit run app.py
+cd Artistic-style-colorization\gui>streamlit run app.py
 ```
 
 3. Open `http://localhost:8501/` in your browser
